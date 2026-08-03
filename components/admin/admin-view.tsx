@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Baby,
   Bone,
@@ -16,12 +17,14 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
-import {
-  doctors as seedDoctors,
-  patients as seedPatients,
-  specialties as seedSpecialties,
-} from "@/lib/mock-data"
 import type { Doctor, Patient, Specialty } from "@/lib/types"
+import {
+  upsertPatient,
+  deletePatient,
+  upsertDoctor,
+  deleteDoctor,
+  deleteSpecialty,
+} from "@/lib/actions/data"
 import { calcAge, formatShortDate, getInitials } from "@/lib/appointments"
 import { Button } from "@/components/ui/button"
 import {
@@ -76,12 +79,25 @@ const entityLabels: Record<Entity, { singular: string; plural: string }> = {
   specialties: { singular: "Especialidad", plural: "Especialidades" },
 }
 
-export function AdminView() {
+export function AdminView({
+  patients: initialPatients,
+  doctors: initialDoctors,
+  specialties: initialSpecialties,
+}: {
+  patients: Patient[]
+  doctors: Doctor[]
+  specialties: Specialty[]
+}) {
+  const router = useRouter()
   const [tab, setTab] = useState<Entity>("patients")
-  const [patients, setPatients] = useState<Patient[]>(seedPatients)
-  const [doctors, setDoctors] = useState<Doctor[]>(seedDoctors)
-  const [specialties] = useState<Specialty[]>(seedSpecialties)
+  const [patients, setPatients] = useState<Patient[]>(initialPatients)
+  const [doctors, setDoctors] = useState<Doctor[]>(initialDoctors)
+  const [specialties, setSpecialties] = useState<Specialty[]>(initialSpecialties)
   const [query, setQuery] = useState("")
+
+  useEffect(() => setPatients(initialPatients), [initialPatients])
+  useEffect(() => setDoctors(initialDoctors), [initialDoctors])
+  useEffect(() => setSpecialties(initialSpecialties), [initialSpecialties])
 
   // Estado del diálogo de creación/edición.
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -123,7 +139,7 @@ export function AdminView() {
     setDialogOpen(true)
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
     const firstName = String(form.get("firstName") ?? "").trim()
@@ -131,71 +147,63 @@ export function AdminView() {
     const email = String(form.get("email") ?? "").trim()
     const phone = String(form.get("phone") ?? "").trim()
 
-    if (tab === "patients") {
-      if (editing) {
-        setPatients((prev) =>
-          prev.map((p) =>
-            p._id === editing._id ? { ...p, firstName, lastName, email, phone } : p,
-          ),
-        )
-        toast.success("Paciente actualizado")
-      } else {
-        const nuevo: Patient = {
-          _id: crypto.randomUUID(),
+    try {
+      if (tab === "patients") {
+        const dni = String(form.get("dni") ?? "").trim()
+        await upsertPatient({
+          _id: editing?._id,
           firstName,
           lastName,
           email,
           phone,
-          dni: String(form.get("dni") ?? "").trim() || "—",
-          birthDate: "1990-01-01",
-          createdAt: new Date().toISOString().slice(0, 10),
-        }
-        setPatients((prev) => [nuevo, ...prev])
-        toast.success("Paciente creado")
-      }
-    } else if (tab === "doctors") {
-      const specialtyName = String(form.get("specialtyName") ?? "").trim()
-      if (editing) {
-        setDoctors((prev) =>
-          prev.map((d) =>
-            d._id === editing._id
-              ? { ...d, firstName, lastName, email, phone, specialtyName }
-              : d,
-          ),
-        )
-        toast.success("Médico actualizado")
-      } else {
-        const nuevo: Doctor = {
-          _id: crypto.randomUUID(),
+          dni,
+          birthDate: (editing as Patient | null)?.birthDate ?? "1990-01-01",
+        })
+        toast.success(editing ? "Paciente actualizado" : "Paciente creado")
+      } else if (tab === "doctors") {
+        const specialtyName = String(form.get("specialtyName") ?? "").trim()
+        await upsertDoctor({
+          _id: editing?._id,
           firstName,
           lastName,
           email,
           phone,
-          specialtyId: specialties.find((s) => s.name === specialtyName)?._id ?? "",
           specialtyName: specialtyName || "General",
-          avatar: "",
+          specialtyId: specialties.find((s) => s.name === specialtyName)?._id ?? "",
           license: String(form.get("license") ?? "").trim() || "MN —",
-          rating: 5,
-          yearsExperience: 1,
-          workDays: [1, 2, 3, 4, 5],
-        }
-        setDoctors((prev) => [nuevo, ...prev])
-        toast.success("Médico creado")
+          workDays: (editing as Doctor | null)?.workDays ?? [1, 2, 3, 4, 5],
+        })
+        toast.success(editing ? "Médico actualizado" : "Médico creado")
       }
+      setDialogOpen(false)
+      setEditing(null)
+      router.refresh()
+    } catch {
+      toast.error("No se pudo guardar el registro")
     }
-    setDialogOpen(false)
-    setEditing(null)
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!toDelete) return
-    if (tab === "patients") {
-      setPatients((prev) => prev.filter((p) => p._id !== toDelete.id))
-    } else if (tab === "doctors") {
-      setDoctors((prev) => prev.filter((d) => d._id !== toDelete.id))
-    }
-    toast.success(`${toDelete.name} eliminado`)
+    const target = toDelete
     setToDelete(null)
+    try {
+      if (tab === "patients") {
+        setPatients((prev) => prev.filter((p) => p._id !== target.id))
+        await deletePatient(target.id)
+      } else if (tab === "doctors") {
+        setDoctors((prev) => prev.filter((d) => d._id !== target.id))
+        await deleteDoctor(target.id)
+      } else if (tab === "specialties") {
+        setSpecialties((prev) => prev.filter((s) => s._id !== target.id))
+        await deleteSpecialty(target.id)
+      }
+      toast.success(`${target.name} eliminado`)
+      router.refresh()
+    } catch {
+      toast.error("No se pudo eliminar el registro")
+      router.refresh()
+    }
   }
 
   return (
@@ -406,6 +414,7 @@ export function AdminView() {
                             size="icon"
                             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             aria-label={`Eliminar ${s.name}`}
+                            onClick={() => setToDelete({ id: s._id, name: s.name })}
                           />
                         }
                       >

@@ -18,8 +18,11 @@ import {
   Stethoscope,
   type LucideIcon,
 } from "lucide-react"
-import { doctors, specialties, availableTimeSlots } from "@/lib/mock-data"
-import type { Doctor } from "@/lib/types"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { availableTimeSlots } from "@/lib/mock-data"
+import type { Doctor, Specialty } from "@/lib/types"
+import { createAppointment } from "@/lib/actions/data"
 import { formatLongDate, getInitials, parseISODate } from "@/lib/appointments"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -60,13 +63,23 @@ const steps = [
   { id: 3, label: "Fecha y hora", icon: CalendarDays },
 ]
 
-export function BookingStepper({ onBooked }: { onBooked?: () => void }) {
+export function BookingStepper({
+  specialties,
+  doctors,
+  onBooked,
+}: {
+  specialties: Specialty[]
+  doctors: Doctor[]
+  onBooked?: () => void
+}) {
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [specialtyId, setSpecialtyId] = useState<string>("")
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [time, setTime] = useState<string>("")
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const filteredDoctors = useMemo(
     () => doctors.filter((d) => d.specialtyId === specialtyId),
@@ -88,13 +101,34 @@ export function BookingStepper({ onBooked }: { onBooked?: () => void }) {
     (step === 2 && doctor) ||
     (step === 3 && date && time)
 
-  function handleContinue() {
+  function toDateString(d: Date) {
+    // Formato YYYY-MM-DD en horario local (evita corrimiento por zona horaria).
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
+  }
+
+  async function handleContinue() {
     if (step < 3) {
       setStep((s) => s + 1)
-    } else {
-      // Simula el POST /api/appointments al backend Express.
-      setConfirmOpen(true)
+      return
     }
+    if (!doctor || !date || !time) return
+    setSaving(true)
+    const res = await createAppointment({
+      doctorId: doctor._id,
+      date: toDateString(date),
+      time,
+      reason: undefined,
+    })
+    setSaving(false)
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo reservar el turno")
+      return
+    }
+    router.refresh()
+    setConfirmOpen(true)
   }
 
   return (
@@ -321,8 +355,8 @@ export function BookingStepper({ onBooked }: { onBooked?: () => void }) {
           <ArrowLeft data-icon="inline-start" />
           Atrás
         </Button>
-        <Button onClick={handleContinue} disabled={!canContinue}>
-          {step === 3 ? "Confirmar turno" : "Continuar"}
+        <Button onClick={handleContinue} disabled={!canContinue || saving}>
+          {step === 3 ? (saving ? "Confirmando..." : "Confirmar turno") : "Continuar"}
           {step === 3 ? (
             <Check data-icon="inline-end" />
           ) : (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CalendarCheck,
   CalendarPlus,
@@ -13,8 +13,9 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import { currentPatient, patientAppointments } from "@/lib/mock-data"
-import type { Appointment } from "@/lib/types"
+import { useRouter } from "next/navigation"
+import type { Appointment, Doctor, Specialty } from "@/lib/types"
+import { cancelAppointment } from "@/lib/actions/data"
 import {
   formatLongDate,
   formatShortDate,
@@ -51,10 +52,26 @@ function isFuture(a: Appointment) {
   return a.status === "scheduled"
 }
 
-export function PatientView() {
+export function PatientView({
+  patientName,
+  appointments: initialAppointments,
+  specialties,
+  doctors,
+}: {
+  patientName: string
+  appointments: Appointment[]
+  specialties: Specialty[]
+  doctors: Doctor[]
+}) {
+  const router = useRouter()
   const [tab, setTab] = useState("inicio")
-  const [appointments, setAppointments] = useState<Appointment[]>(patientAppointments)
+  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
   const [toCancel, setToCancel] = useState<Appointment | null>(null)
+
+  // Re-sincroniza con los datos del servidor tras router.refresh().
+  useEffect(() => {
+    setAppointments(initialAppointments)
+  }, [initialAppointments])
 
   const upcoming = useMemo(
     () =>
@@ -72,24 +89,31 @@ export function PatientView() {
   )
   const nextAppointment = upcoming[0]
 
-  function confirmCancel() {
+  async function confirmCancel() {
     if (!toCancel) return
+    const target = toCancel
+    // Actualización optimista
     setAppointments((prev) =>
-      prev.map((a) =>
-        a._id === toCancel._id ? { ...a, status: "cancelled" } : a,
-      ),
+      prev.map((a) => (a._id === target._id ? { ...a, status: "cancelled" } : a)),
     )
-    toast.success("Turno cancelado", {
-      description: `${toCancel.specialtyName} · ${formatShortDate(toCancel.date)}`,
-    })
     setToCancel(null)
+    try {
+      await cancelAppointment(target._id)
+      toast.success("Turno cancelado", {
+        description: `${target.specialtyName} · ${formatShortDate(target.date)}`,
+      })
+      router.refresh()
+    } catch {
+      toast.error("No se pudo cancelar el turno")
+      router.refresh()
+    }
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-          Hola, {currentPatient.firstName}
+          Hola, {patientName}
         </h1>
         <p className="text-muted-foreground">
           Gestioná tus turnos médicos de forma simple y rápida.
@@ -220,7 +244,11 @@ export function PatientView() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <BookingStepper onBooked={() => setTab("turnos")} />
+              <BookingStepper
+                specialties={specialties}
+                doctors={doctors}
+                onBooked={() => setTab("turnos")}
+              />
             </CardContent>
           </Card>
         </TabsContent>

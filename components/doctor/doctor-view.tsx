@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   CalendarDays,
   CheckCircle2,
@@ -15,8 +16,8 @@ import {
   Users,
 } from "lucide-react"
 import { toast } from "sonner"
-import { doctorTodayAppointments, getPatientDetail } from "@/lib/mock-data"
-import type { Appointment } from "@/lib/types"
+import type { Appointment, Patient } from "@/lib/types"
+import { setAppointmentStatus, saveAppointmentNotes } from "@/lib/actions/data"
 import {
   calcAge,
   formatLongDate,
@@ -46,12 +47,25 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 
-export function DoctorView() {
-  const [appointments, setAppointments] = useState<Appointment[]>(
-    doctorTodayAppointments,
-  )
+export function DoctorView({
+  doctorName,
+  specialtyName,
+  appointments: initialAppointments,
+  patients,
+}: {
+  doctorName: string
+  specialtyName: string
+  appointments: Appointment[]
+  patients: Patient[]
+}) {
+  const router = useRouter()
+  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments)
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [notes, setNotes] = useState("")
+
+  useEffect(() => {
+    setAppointments(initialAppointments)
+  }, [initialAppointments])
 
   const stats = useMemo(() => {
     const total = appointments.length
@@ -61,7 +75,7 @@ export function DoctorView() {
     return { total, completed, pending, absent }
   }, [appointments])
 
-  function updateStatus(id: string, status: Appointment["status"]) {
+  async function updateStatus(id: string, status: Appointment["status"]) {
     setAppointments((prev) =>
       prev.map((a) => (a._id === id ? { ...a, status } : a)),
     )
@@ -69,7 +83,14 @@ export function DoctorView() {
       completed: "Paciente marcado como atendido",
       absent: "Paciente marcado como ausente",
     }
-    toast.success(labels[status] ?? "Turno actualizado")
+    try {
+      await setAppointmentStatus(id, status)
+      toast.success(labels[status] ?? "Turno actualizado")
+      router.refresh()
+    } catch {
+      toast.error("No se pudo actualizar el turno")
+      router.refresh()
+    }
   }
 
   function openDetail(a: Appointment) {
@@ -77,16 +98,24 @@ export function DoctorView() {
     setNotes(a.notes ?? "")
   }
 
-  function saveNotes() {
+  async function saveNotes() {
     if (!selected) return
-    setAppointments((prev) =>
-      prev.map((a) => (a._id === selected._id ? { ...a, notes } : a)),
-    )
-    toast.success("Observaciones guardadas")
+    const id = selected._id
+    setAppointments((prev) => prev.map((a) => (a._id === id ? { ...a, notes } : a)))
     setSelected(null)
+    try {
+      await saveAppointmentNotes(id, notes)
+      toast.success("Observaciones guardadas")
+      router.refresh()
+    } catch {
+      toast.error("No se pudieron guardar las observaciones")
+      router.refresh()
+    }
   }
 
-  const patient = selected ? getPatientDetail(selected.patientId) : undefined
+  const patient = selected
+    ? patients.find((p) => p._id === selected.patientId)
+    : undefined
 
   return (
     <div className="flex flex-col gap-6">
@@ -99,7 +128,8 @@ export function DoctorView() {
           Agenda del día
         </h1>
         <p className="text-muted-foreground">
-          Dra. María González · Cardiología
+          {doctorName}
+          {specialtyName ? ` · ${specialtyName}` : ""}
         </p>
       </div>
 
