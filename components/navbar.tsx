@@ -15,7 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -103,7 +102,7 @@ export function Navbar({
               </>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 px-2 py-1.5 text-sm font-medium">
                 <span>{user.name}</span>
                 <span className="text-xs font-normal text-muted-foreground">
                   {user.email}
@@ -111,7 +110,7 @@ export function Navbar({
                 <Badge variant="secondary" className="w-fit font-normal">
                   {label}
                 </Badge>
-              </DropdownMenuLabel>
+              </div>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuItem onClick={openProfile}>
