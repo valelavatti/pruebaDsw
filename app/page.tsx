@@ -11,15 +11,18 @@ import {
   getAppointments,
   getMyPatientProfile,
   getMyDoctorProfile,
+  getProfileSummary,
 } from "@/lib/actions/data"
 
 export default async function Page() {
   const user = await getSessionUser()
   if (!user) redirect("/sign-in")
 
+  const profile = await getProfileSummary()
+
   return (
     <div className="min-h-svh bg-background">
-      <Navbar user={user} />
+      <Navbar user={user} profile={profile} />
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <div className="animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
           {user.role === "patient" && <PatientContent />}

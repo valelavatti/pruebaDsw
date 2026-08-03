@@ -186,6 +186,130 @@ export async function getMyDoctorProfile(): Promise<Doctor | null> {
   return doc ? mapDoctor(doc) : null
 }
 
+// ---- profile summary ------------------------------------------------------
+
+export type ProfileSummary = {
+  role: "patient" | "doctor" | "admin"
+  name: string
+  email: string
+  image?: string | null
+  patient?: {
+    dni: string
+    phone: string
+    birthDate: string
+    bloodType?: string
+    memberSince: string
+    total: number
+    upcoming: number
+    completed: number
+  }
+  doctor?: {
+    specialtyName: string
+    license: string
+    rating: number
+    yearsExperience: number
+    phone: string
+    workDays: number[]
+    todayTotal: number
+    todayCompleted: number
+    todayPending: number
+  }
+  admin?: {
+    totalPatients: number
+    totalDoctors: number
+    totalSpecialties: number
+    totalAppointments: number
+    scheduled: number
+  }
+}
+
+function todayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`
+}
+
+export async function getProfileSummary(): Promise<ProfileSummary> {
+  const user = await requireUser()
+  const base = { role: user.role, name: user.name, email: user.email, image: user.image }
+
+  if (user.role === "patient") {
+    const [pat] = await db
+      .select()
+      .from(patientsT)
+      .where(eq(patientsT.userId, user.id))
+      .limit(1)
+    const appts = pat
+      ? await db.select().from(appointmentsT).where(eq(appointmentsT.patientId, pat.id))
+      : []
+    const today = todayStr()
+    return {
+      ...base,
+      patient: {
+        dni: pat?.dni ?? "—",
+        phone: pat?.phone ?? "—",
+        birthDate: pat?.birthDate ?? "—",
+        bloodType: pat?.bloodType ?? undefined,
+        memberSince: pat?.createdAt ?? "—",
+        total: appts.length,
+        upcoming: appts.filter((a) => a.status === "scheduled" && a.date >= today).length,
+        completed: appts.filter((a) => a.status === "completed").length,
+      },
+    }
+  }
+
+  if (user.role === "doctor") {
+    const [doc] = await db
+      .select()
+      .from(doctorsT)
+      .where(eq(doctorsT.userId, user.id))
+      .limit(1)
+    const today = todayStr()
+    const todayAppts = doc
+      ? await db
+          .select()
+          .from(appointmentsT)
+          .where(and(eq(appointmentsT.doctorId, doc.id), eq(appointmentsT.date, today)))
+      : []
+    return {
+      ...base,
+      doctor: {
+        specialtyName: doc?.specialtyName ?? "—",
+        license: doc?.license ?? "—",
+        rating: doc?.rating ?? 0,
+        yearsExperience: doc?.yearsExperience ?? 0,
+        phone: doc?.phone ?? "—",
+        workDays: (doc?.workDays ?? "")
+          .split(",")
+          .map((d) => Number.parseInt(d, 10))
+          .filter((n) => !Number.isNaN(n)),
+        todayTotal: todayAppts.length,
+        todayCompleted: todayAppts.filter((a) => a.status === "completed").length,
+        todayPending: todayAppts.filter((a) => a.status === "scheduled").length,
+      },
+    }
+  }
+
+  // admin
+  const [pats, docs, esps, appts] = await Promise.all([
+    db.select().from(patientsT),
+    db.select().from(doctorsT),
+    db.select().from(specialtiesT),
+    db.select().from(appointmentsT),
+  ])
+  return {
+    ...base,
+    admin: {
+      totalPatients: pats.length,
+      totalDoctors: docs.length,
+      totalSpecialties: esps.length,
+      totalAppointments: appts.length,
+      scheduled: appts.filter((a) => a.status === "scheduled").length,
+    },
+  }
+}
+
 // ---- appointment mutations ------------------------------------------------
 
 export async function createAppointment(input: {

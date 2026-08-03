@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Activity, Bell, ChevronDown, LogOut, Settings, User } from "lucide-react"
+import { Activity, Bell, ChevronDown, LogOut, User } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import type { SessionUser } from "@/lib/session"
+import type { ProfileSummary } from "@/lib/actions/data"
+import { ProfileSheet } from "@/components/profile-sheet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -25,15 +26,31 @@ const roleLabels: Record<SessionUser["role"], string> = {
   admin: "Administración",
 }
 
-export function Navbar({ user }: { user: SessionUser }) {
-  const router = useRouter()
+export function Navbar({
+  user,
+  profile,
+}: {
+  user: SessionUser
+  profile: ProfileSummary
+}) {
   const [signingOut, setSigningOut] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   async function signOut() {
+    if (signingOut) return
     setSigningOut(true)
-    await authClient.signOut()
-    router.push("/sign-in")
-    router.refresh()
+    try {
+      await authClient.signOut()
+    } catch {
+      // Ignoramos el error de red: igualmente forzamos la salida.
+    }
+    // Navegación dura para garantizar que el servidor relea la cookie ya limpiada.
+    window.location.href = "/sign-in"
+  }
+
+  function openProfile() {
+    // Cerramos el menú antes de abrir el panel para evitar conflictos de foco.
+    setTimeout(() => setProfileOpen(true), 0)
   }
 
   const label = roleLabels[user.role]
@@ -97,24 +114,22 @@ export function Navbar({ user }: { user: SessionUser }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={openProfile}>
                   <User />
                   Mi perfil
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings />
-                  Configuración
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={signOut} disabled={signingOut}>
                 <LogOut />
-                Cerrar sesión
+                {signingOut ? "Cerrando sesión..." : "Cerrar sesión"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      <ProfileSheet open={profileOpen} onOpenChange={setProfileOpen} profile={profile} />
     </header>
   )
 }
