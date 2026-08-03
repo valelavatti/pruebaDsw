@@ -104,8 +104,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <Field>
             <FieldLabel>Tipo de cuenta</FieldLabel>
             <ToggleGroup
-              value={role}
-              onValueChange={(v) => v && setRole(v as Role)}
+              value={[role]}
+              onValueChange={(v) => {
+                const next = v.find((x) => x !== role) ?? v[0]
+                if (next) setRole(next as Role)
+              }}
               className="grid grid-cols-3 gap-2"
             >
               <RoleOption value="patient" icon={User} label="Paciente" active={role === "patient"} />
