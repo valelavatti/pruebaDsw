@@ -149,7 +149,7 @@ export function BookingStepper({ onBooked }: { onBooked?: () => void }) {
               Elegí el área de atención para tu consulta.
             </p>
           </div>
-          <Select value={specialtyId} onValueChange={setSpecialtyId}>
+          <Select value={specialtyId} onValueChange={(v) => setSpecialtyId(v ?? "")}>
             <SelectTrigger className="w-full sm:max-w-sm">
               <SelectValue placeholder="Seleccioná una especialidad" />
             </SelectTrigger>
@@ -385,9 +385,7 @@ export function BookingStepper({ onBooked }: { onBooked?: () => void }) {
             </CardContent>
           </Card>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button className="w-full">Listo</Button>
-            </DialogClose>
+            <DialogClose render={<Button className="w-full">Listo</Button>} />
           </DialogFooter>
         </DialogContent>
       </Dialog>

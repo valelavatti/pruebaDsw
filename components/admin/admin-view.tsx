@@ -399,15 +399,17 @@ export function AdminView() {
                       Editar
                     </Button>
                     <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                          aria-label={`Eliminar ${s.name}`}
-                        >
-                          <Trash2 />
-                        </Button>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Eliminar ${s.name}`}
+                          />
+                        }
+                      >
+                        <Trash2 />
                       </TooltipTrigger>
                       <TooltipContent>Eliminar especialidad</TooltipContent>
                     </Tooltip>
@@ -518,11 +520,13 @@ export function AdminView() {
             </FieldGroup>
 
             <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Cancelar
-                </Button>
-              </DialogClose>
+              <DialogClose
+                render={
+                  <Button type="button" variant="outline">
+                    Cancelar
+                  </Button>
+                }
+              />
               <Button type="submit">
                 {editing ? "Guardar cambios" : "Crear registro"}
               </Button>
@@ -546,9 +550,7 @@ export function AdminView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancelar</Button>
-            </DialogClose>
+            <DialogClose render={<Button variant="outline">Cancelar</Button>} />
             <Button variant="destructive" onClick={confirmDelete}>
               Eliminar
             </Button>
@@ -575,24 +577,28 @@ function RowActions({
   return (
     <div className="flex justify-end gap-1">
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Editar">
-            <Pencil />
-          </Button>
+        <TooltipTrigger
+          render={
+            <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Editar" />
+          }
+        >
+          <Pencil />
         </TooltipTrigger>
         <TooltipContent>Editar</TooltipContent>
       </Tooltip>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onDelete}
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-            aria-label="Eliminar"
-          >
-            <Trash2 />
-          </Button>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onDelete}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              aria-label="Eliminar"
+            />
+          }
+        >
+          <Trash2 />
         </TooltipTrigger>
         <TooltipContent>Eliminar</TooltipContent>
       </Tooltip>

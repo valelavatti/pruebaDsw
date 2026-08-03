@@ -131,7 +131,7 @@ export function Navbar({
                   <p className="text-[11px] text-muted-foreground">{active.label}</p>
                 </div>
                 <ChevronDown className="hidden size-4 text-muted-foreground sm:block" />
-              </Button>
+              </>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="flex flex-col gap-1">

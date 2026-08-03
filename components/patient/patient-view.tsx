@@ -284,9 +284,7 @@ export function PatientView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Volver</Button>
-            </DialogClose>
+            <DialogClose render={<Button variant="outline">Volver</Button>} />
             <Button variant="destructive" onClick={confirmCancel}>
               Sí, cancelar turno
             </Button>
